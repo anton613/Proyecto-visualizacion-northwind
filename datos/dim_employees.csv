@@ -1,0 +1,10 @@
+sk_employee,employee_id,full_name,job_title,privilege,email_address,city
+1,1,Nancy Freehafer,Sales Representative,,nancy@northwindtraders.com,Seattle
+2,2,Andrew Cencini,"Vice President, Sales",Purchase Approvals,andrew@northwindtraders.com,Bellevue
+3,3,Jan Kotas,Sales Representative,,jan@northwindtraders.com,Redmond
+4,4,Mariya Sergienko,Sales Representative,,mariya@northwindtraders.com,Kirkland
+5,5,Steven Thorpe,Sales Manager,,steven@northwindtraders.com,Seattle
+6,6,Michael Neipper,Sales Representative,,michael@northwindtraders.com,Redmond
+7,7,Robert Zare,Sales Representative,,robert@northwindtraders.com,Seattle
+8,8,Laura Giussani,Sales Coordinator,,laura@northwindtraders.com,Redmond
+9,9,Anne Hellung-Larsen,Sales Representative,,anne@northwindtraders.com,Seattle

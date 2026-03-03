@@ -1,0 +1,11 @@
+sk_supplier,supplier_id,company,first_name,last_name,job_title
+1,1,Supplier A,Elizabeth A.,Andersen,Sales Manager
+2,2,Supplier B,Cornelia,Weiler,Sales Manager
+3,3,Supplier C,Madeleine,Kelley,Sales Representative
+4,4,Supplier D,Naoki,Sato,Marketing Manager
+5,5,Supplier E,Amaya,Hernandez-Echevarria,Sales Manager
+6,6,Supplier F,Satomi,Hayakawa,Marketing Assistant
+7,7,Supplier G,Stuart,Glasson,Marketing Manager
+8,8,Supplier H,Bryn Paul,Dunton,Sales Representative
+9,9,Supplier I,Mikael,Sandberg,Sales Manager
+10,10,Supplier J,Luis,Sousa,Sales Manager
