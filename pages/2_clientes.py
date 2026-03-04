@@ -3,7 +3,7 @@ import pandas as pd
 from utils.data_loader import load_all_data, get_date_filtered_data
 from utils.charts import (
     plot_distribucion_clientes_region, plot_top_clientes,
-    plot_frecuencia_compra, get_clientes_kpis
+    plot_frecuencia_compra, get_clientes_kpis, plot_evolucion_clientes_temporal
 )
 from utils.ui_components import hide_auto_navigation, render_sidebar
 
@@ -88,37 +88,8 @@ with col1:
         st.info("No hay datos suficientes para mostrar frecuencia de compra en el período seleccionado")
 
 with col2:
-    # GRÁFICO IMPLEMENTADO: Clientes nuevos vs recurrentes
-    if not df_sales_filtered.empty and 'date' in df_sales_filtered.columns:
-        # Calcular primera compra de cada cliente (usando datos completos)
-        primera_compra_total = data['fact_sales'].groupby('sk_customer')['date'].min().reset_index()
-        primera_compra_total.columns = ['sk_customer', 'primera_compra']
-        
-        # Identificar clientes en el período filtrado
-        clientes_en_periodo = df_sales_filtered['sk_customer'].unique()
-        
-        # Clasificar
-        nuevos = []
-        recurrentes = []
-        
-        for cliente in clientes_en_periodo:
-            fecha_primera = primera_compra_total[primera_compra_total['sk_customer'] == cliente]['primera_compra'].iloc[0]
-            if fecha_primera >= pd.Timestamp(start_date) and fecha_primera <= pd.Timestamp(end_date):
-                nuevos.append(cliente)
-            else:
-                recurrentes.append(cliente)
-        
-        # Crear gráfico
-        import plotly.graph_objects as go
-        fig = go.Figure(data=[
-            go.Bar(name='Clientes', x=['Nuevos', 'Recurrentes'], y=[len(nuevos), len(recurrentes)], 
-                   marker_color=['#2ECC71', '#3498DB'])
-        ])
-        fig.update_layout(
-            title='Clientes Nuevos vs Recurrentes en el Período',
-            yaxis_title='Número de Clientes',
-            showlegend=False
-        )
-        st.plotly_chart(fig, use_container_width=True)
+    fig_evolucion_clientes = plot_evolucion_clientes_temporal(df_sales_filtered)
+    if fig_evolucion_clientes:
+        st.plotly_chart(fig_evolucion_clientes, use_container_width=True)
     else:
-        st.info("No hay datos suficientes para mostrar clientes nuevos vs recurrentes")
+        st.info("No hay datos suficientes para mostrar evolución de clientes en el período seleccionado")

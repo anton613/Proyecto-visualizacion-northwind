@@ -112,7 +112,13 @@ Proyecto-visualizacion-northwind/
 │   ├── charts.py         # Funciones para gráficos
 │   ├── data_loader.py    # Carga de datos
 │   └── ui_components.py  # Componentes de UI
-├── datos/                 # Archivos de datos
+├── consultas solo BD/     # Consultas SQL equivalentes sobre la BD operacional
+│   ├── Consultas para la pag Ventas.sql
+│   ├── Consultas para la pag Clientes.sql
+│   ├── Consultas para la pag Inventario.sql
+│   ├── Consultas para la pag Compras.sql
+│   └── Consultas para la pag Logistica.sql
+├── datos/                 # Archivos de datos (modelo dimensional)
 ├── .streamlit/           # Configuración de Streamlit
 │   └── config.toml
 ├── requirements.txt      # Dependencias del proyecto
@@ -123,6 +129,35 @@ Proyecto-visualizacion-northwind/
 ## 📊 Datos
 
 Los datos utilizados provienen del proyecto base de análisis Northwind y están almacenados en la carpeta `datos/`. El dashboard carga automáticamente estos datos al iniciar.
+
+## 🔍 Consultas SQL sobre la BD Operacional (Northwind Original)
+
+En la carpeta `consultas solo BD/` se incluyen las consultas SQL equivalentes que obtienen los mismos resultados directamente desde la **base de datos operacional (transaccional)** de Northwind. Esto permite comparar ambos enfoques de análisis:
+
+### Enfoque Analítico (Este Dashboard)
+- Utiliza un **modelo dimensional** (estrella) con tablas de hechos (`fact_sales`, `fact_purchases`, `fact_inventory_movements`) y dimensiones (`dim_customers`, `dim_products`, `dim_employees`, etc.).
+- Los datos fueron previamente transformados (ETL) y se cargan desde archivos CSV.
+- Las operaciones de análisis se realizan con **Python (Pandas)**: joins, agrupaciones, cálculos de métricas y KPIs se ejecutan en memoria.
+- Optimizado para **consultas de lectura y análisis** de grandes volúmenes de datos.
+
+### Enfoque Operacional (Consultas SQL Directas)
+- Las consultas se ejecutan sobre el **esquema transaccional original** de Northwind (`orders`, `order_details`, `products`, `customers`, etc.).
+- Requiere múltiples `JOIN` entre tablas normalizadas para obtener la información consolidada.
+- Diseñado para soportar las **operaciones del día a día** (insertar pedidos, actualizar inventario, registrar clientes).
+- Las consultas analíticas son más complejas y costosas al ejecutarse sobre un modelo no optimizado para análisis.
+
+### Archivos de Consultas SQL
+
+```
+consultas solo BD/
+├── Consultas para la pag Ventas.sql       # KPIs, tendencias, categorías, top productos, ventas por empleado/estado
+├── Consultas para la pag Clientes.sql     # Cartera, distribución geográfica, frecuencia, clientes nuevos vs recurrentes
+├── Consultas para la pag Inventario.sql   # Stock por categoría, backorders, rotación, entradas vs salidas
+├── Consultas para la pag Compras.sql      # Costos, proveedores, tendencias, órdenes pendientes
+└── Consultas para la pag Logistica.sql    # Transportistas, costos de envío, órdenes sin asignar
+```
+
+> **Nota**: Estas consultas están escritas en SQL (compatible con MySQL) y sirven como referencia comparativa. Demuestran cómo las mismas preguntas de negocio se resuelven de forma diferente según el modelo de datos utilizado.
 
 ## 🤝 Contribuciones
 

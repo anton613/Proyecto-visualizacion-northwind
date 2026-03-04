@@ -55,14 +55,33 @@ GROUP BY customer_id
 ORDER BY num_orders DESC;
 
 -- --------------- Clientes Nuevos por Mes ------------
-SELECT 
-    DATE_FORMAT(primera_compra, '%Y-%m') AS month,
-    COUNT(customer_id) AS nuevos
-FROM (
-    -- Obtenemos la fecha mínima de orden para cada cliente
-    SELECT customer_id, MIN(order_date) AS primera_compra
-    FROM northwind.orders
+WITH PrimerasCompras AS (
+    -- Identificamos la fecha de la primera orden de cada cliente
+    SELECT 
+        customer_id, 
+        MIN(order_date) as fecha_inicio
+    FROM orders
     GROUP BY customer_id
-) AS clientes_primera_vez
-GROUP BY month
-ORDER BY month ASC;
+),
+ClasificacionOrdenes AS (
+    -- Clasificamos cada orden como 'Nuevo' o 'Recurrente'
+    SELECT 
+        o.customer_id,
+        o.order_date,
+        -- Truncamos la fecha al primer día del mes para agrupar temporalmente
+        DATE_FORMAT(o.order_date, '%Y-%m-01') AS mes,
+        CASE 
+            WHEN o.order_date = pc.fecha_inicio THEN 'Nuevo'
+            ELSE 'Recurrente'
+        END AS tipo_cliente
+    FROM orders o
+    JOIN PrimerasCompras pc ON o.customer_id = pc.customer_id
+)
+-- Agrupamos para obtener el conteo único de clientes por mes y tipo
+SELECT 
+    mes,
+    tipo_cliente,
+    COUNT(DISTINCT customer_id) AS total_clientes
+FROM ClasificacionOrdenes
+GROUP BY mes, tipo_cliente
+ORDER BY mes ASC, tipo_cliente DESC;

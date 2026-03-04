@@ -78,7 +78,7 @@ def plot_ventas_por_region(df_sales, df_customers):
     # 5. Crear el Mapa
     fig = px.choropleth(
         ventas_region,
-        locations='state_province',     # Seguimos usando la sigla para la ubicación técnica
+        locations='state_province',
         locationmode="USA-states",
         color='line_total',
         scope="usa",
@@ -217,14 +217,45 @@ def plot_frecuencia_compra(df_sales):
     )
     return fig
 
-def plot_clientes_nuevos_vs_recurrentes(df_sales, df_customers):
-    """Clientes Nuevos vs Recurrentes - Líneas comparativas"""
+def plot_evolucion_clientes_temporal(df_sales):
+    """Evolución mensual de clientes nuevos vs recurrentes"""
     if df_sales.empty or 'date' not in df_sales.columns:
         return None
     
-    # Primera compra por cliente (considerando todo el historial, no solo filtrado)
-    # Nota: Para este cálculo usamos todos los datos, no solo los filtrados
-    return None  # Esta función necesita revisión
+    # Identificar primera compra de cada cliente
+    primera_compra = df_sales.groupby('sk_customer')['date'].min().reset_index()
+    primera_compra['es_primera'] = True
+    
+    # Marcar si es primera compra en el DataFrame original
+    df_con_primera = df_sales.merge(
+        primera_compra, 
+        on=['sk_customer', 'date'], 
+        how='left', 
+        indicator='tipo_compra'
+    )
+    df_con_primera['tipo_cliente'] = df_con_primera['tipo_compra'].apply(
+        lambda x: 'Nuevo' if x == 'both' else 'Recurrente'
+    )
+    
+    # Agrupar por mes y tipo
+    df_con_primera['mes'] = df_con_primera['date'].dt.to_period('M').dt.start_time
+    evolucion = df_con_primera.groupby(['mes', 'tipo_cliente'])['sk_customer'].nunique().reset_index()
+    
+    # Gráfico de líneas
+    fig = px.line(
+        evolucion,
+        x='mes',
+        y='sk_customer',
+        color='tipo_cliente',
+        title='Evolución de Clientes Nuevos vs Recurrentes',
+        labels={'mes': 'Mes', 'sk_customer': 'Número de Clientes', 'tipo_cliente': 'Tipo'},
+        markers=True,
+        color_discrete_map={'Nuevo': '#2ECC71', 'Recurrente': '#3498DB'}
+    )
+    
+    fig.update_layout(hovermode='x unified')
+    
+    return fig
 
 # ==================== FUNCIONES PARA GRÁFICOS DE INVENTARIO ====================
 
@@ -335,7 +366,7 @@ def plot_movimientos_inventario(df_inventory):
         xaxis_tickangle=-45,
         legend_title_text='Movimiento',
         margin=dict(l=20, r=20, t=50, b=20),
-        title_x=0.02 # Alineado a la izquierda como pediste antes
+        title_x=0.02
     )
     
     return fig
@@ -352,8 +383,8 @@ def plot_compras_por_proveedor(df_purchases, df_suppliers):
     df_purchases['total_linea'] = df_purchases['unit_cost'] * df_purchases['quantity']
     
     compras_proveedor = df_purchases.groupby('sk_supplier').agg({
-        'total_linea': 'sum',           # Suma correcta de totales
-        'quantity': 'sum'                # Opcional: mantener cantidad total
+        'total_linea': 'sum',
+        'quantity': 'sum'
     }).reset_index()
     
     df_merged = compras_proveedor.merge(df_suppliers[['sk_supplier', 'company']], on='sk_supplier')
