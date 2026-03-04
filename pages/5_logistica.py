@@ -32,17 +32,22 @@ filtered_data = get_date_filtered_data(data, start_date, end_date)
 df_sales_filtered = filtered_data['fact_sales']
 
 # Aplicar filtro de transportista si está seleccionado
-if filtros_extra and filtros_extra.get('transportista') and filtros_extra['transportista'] != "Todos":
-    transportista_seleccionado = filtros_extra['transportista']
-    # Mapear nombre a sk_shipper
+if filtros_extra and filtros_extra.get('transportista'):
+    transportistas_seleccionados = filtros_extra['transportista']
+    
+    # Mapear nombres a sk_shipper
     shipper_map = {
-        "Speedy Express": 1,
-        "United Package": 2,
-        "Federal Shipping": 3
+        "Shipping Company A": 1,
+        "Shipping Company B": 2,
+        "Shipping Company C": 3
     }
-    sk_shipper = shipper_map.get(transportista_seleccionado)
-    if sk_shipper and not df_sales_filtered.empty:
-        df_sales_filtered = df_sales_filtered[df_sales_filtered['sk_shipper'] == sk_shipper]
+    
+    # Obtener los IDs de los transportistas seleccionados
+    ids_seleccionados = [shipper_map.get(name) for name in transportistas_seleccionados if name in shipper_map]
+    
+    if ids_seleccionados and not df_sales_filtered.empty:
+        # Filtrar el dataframe por la lista de IDs
+        df_sales_filtered = df_sales_filtered[df_sales_filtered['sk_shipper'].isin(ids_seleccionados)]
 
 # KPIs de Logística (usando datos filtrados)
 kpis = get_logistica_kpis(df_sales_filtered, data['dim_shippers'])

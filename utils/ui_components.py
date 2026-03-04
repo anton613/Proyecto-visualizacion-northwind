@@ -134,7 +134,7 @@ def render_sidebar(page_type="global", data=None):
             )
             
         elif page_type == "logistica":
-            transportistas_list = ["Speedy Express", "United Package", "Federal Shipping"]
+            transportistas_list = ["Shipping Company A", "Shipping Company B", "Shipping Company C"]
             # Inicializar en session_state si no existe
             if 'ship_filter' not in st.session_state:
                 st.session_state['ship_filter'] = []
