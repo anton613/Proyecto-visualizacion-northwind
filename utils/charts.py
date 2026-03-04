@@ -222,24 +222,9 @@ def plot_clientes_nuevos_vs_recurrentes(df_sales, df_customers):
     if df_sales.empty or 'date' not in df_sales.columns:
         return None
     
-    # Primera compra por cliente
-    primera_compra = df_sales.groupby('sk_customer')['date'].min().reset_index()
-    primera_compra.columns = ['sk_customer', 'primera_compra']
-    primera_compra['month'] = primera_compra['primera_compra'].dt.to_period('M')
-    
-    # Clientes nuevos por mes
-    clientes_nuevos = primera_compra.groupby('month').size().reset_index(name='nuevos')
-    clientes_nuevos['month'] = clientes_nuevos['month'].astype(str)
-    
-    fig = px.line(
-        clientes_nuevos,
-        x='month',
-        y='nuevos',
-        title='Clientes Nuevos por Mes',
-        markers=True
-    )
-    fig.update_layout(xaxis_tickangle=-45)
-    return fig
+    # Primera compra por cliente (considerando todo el historial, no solo filtrado)
+    # Nota: Para este cálculo usamos todos los datos, no solo los filtrados
+    return None  # Esta función necesita revisión
 
 # ==================== FUNCIONES PARA GRÁFICOS DE INVENTARIO ====================
 
@@ -304,11 +289,18 @@ def plot_rotacion_inventario(df_sales, df_inventory, df_products):
         df_merged,
         x='stock_total',
         y='ventas_totales',
-        text='product_name',
         title='Rotación de Inventario: Ventas vs Stock',
         labels={'stock_total': 'Stock Total (Unidades)', 'ventas_totales': 'Ventas Totales (Unidades)'}
     )
-    fig.update_traces(textposition='top center')
+    fig.update_layout(
+        yaxis=dict(
+            rangemode='tozero',
+            range=[0, df_merged['ventas_totales'].max() * 1.1]
+        ),
+        xaxis=dict(
+            rangemode='tozero'
+        )
+    )
     return fig
 
 def plot_movimientos_inventario(df_inventory):
@@ -351,26 +343,46 @@ def plot_movimientos_inventario(df_inventory):
 # ==================== FUNCIONES PARA GRÁFICOS DE COMPRAS ====================
 
 def plot_compras_por_proveedor(df_purchases, df_suppliers):
-    """Compras por Proveedor - Barras"""
+    """Compras por Proveedor - Barras (CORREGIDO)"""
     if df_purchases.empty or df_suppliers.empty:
         return None
     
+    # --- CORRECCIÓN: Calcular total por cada fila primero, luego agrupar ---
+    df_purchases = df_purchases.copy()
+    df_purchases['total_linea'] = df_purchases['unit_cost'] * df_purchases['quantity']
+    
     compras_proveedor = df_purchases.groupby('sk_supplier').agg({
-        'unit_cost': 'sum',
-        'quantity': 'sum'
+        'total_linea': 'sum',           # Suma correcta de totales
+        'quantity': 'sum'                # Opcional: mantener cantidad total
     }).reset_index()
-    compras_proveedor['total'] = compras_proveedor['unit_cost'] * compras_proveedor['quantity']
     
     df_merged = compras_proveedor.merge(df_suppliers[['sk_supplier', 'company']], on='sk_supplier')
     
+    # Ordenar y tomar top 15 para mejor visualización si hay muchos proveedores
+    df_merged = df_merged.sort_values('total_linea', ascending=False).head(15)
+    
     fig = px.bar(
-        df_merged.sort_values('total', ascending=False),
+        df_merged,
         x='company',
-        y='total',
+        y='total_linea',
         title='Compras por Proveedor',
-        labels={'company': 'Proveedor', 'total': 'Total Comprado ($)'}
+        labels={'company': 'Proveedor', 'total_linea': 'Total Comprado ($)'},
+        color='total_linea',  # Añadir color basado en el valor
+        color_continuous_scale='Blues'
     )
-    fig.update_layout(xaxis_tickangle=-45)
+    
+    fig.update_layout(
+        xaxis_tickangle=-45,
+        yaxis=dict(tickprefix='$',),
+        coloraxis_showscale=False
+    )
+    
+    # # Añadir etiquetas con los valores
+    # fig.update_traces(
+    #     texttemplate='$%{y:,.0f}', 
+    #     textposition='outside'
+    # )
+    
     return fig
 
 def plot_tendencia_costos_compra(df_purchases):
@@ -518,8 +530,9 @@ def get_ventas_kpis(df_sales):
     # Mes con más ventas
     if 'year_month' in df_sales.columns:
         ventas_mensuales = df_sales.groupby('year_month')['line_total'].sum()
-        kpis['mes_top_ventas'] = ventas_mensuales.idxmax()
-        kpis['ventas_mes_top'] = ventas_mensuales.max()
+        if not ventas_mensuales.empty:
+            kpis['mes_top_ventas'] = ventas_mensuales.idxmax()
+            kpis['ventas_mes_top'] = ventas_mensuales.max()
     
     return kpis
 
@@ -530,22 +543,24 @@ def get_clientes_kpis(df_sales, df_customers):
     if df_sales.empty or df_customers.empty:
         return kpis
     
-    # Total clientes
+    # Total clientes (siempre usamos todos los clientes, no solo los que compraron en el período)
     kpis['total_clientes'] = df_customers['sk_customer'].nunique()
     
-    # Clientes con compras
+    # Clientes con compras en el período filtrado
     clientes_compras = df_sales['sk_customer'].nunique()
     kpis['clientes_activos'] = clientes_compras
-    kpis['tasa_actividad'] = (clientes_compras / kpis['total_clientes']) * 100
+    kpis['tasa_actividad'] = (clientes_compras / kpis['total_clientes']) * 100 if kpis['total_clientes'] > 0 else 0
     
-    # Cliente top
-    top_cliente = df_sales.groupby('sk_customer')['line_total'].sum().idxmax()
-    top_cliente_info = df_customers[df_customers['sk_customer'] == top_cliente]
-    if not top_cliente_info.empty:
-        kpis['cliente_top'] = top_cliente_info['full_name'].iloc[0]
-        kpis['ventas_cliente_top'] = df_sales.groupby('sk_customer')['line_total'].sum().max()
+    # Cliente top en el período
+    if not df_sales.empty:
+        ventas_por_cliente = df_sales.groupby('sk_customer')['line_total'].sum()
+        top_cliente_id = ventas_por_cliente.idxmax()
+        top_cliente_info = df_customers[df_customers['sk_customer'] == top_cliente_id]
+        if not top_cliente_info.empty:
+            kpis['cliente_top'] = top_cliente_info['full_name'].iloc[0]
+            kpis['ventas_cliente_top'] = ventas_por_cliente.max()
     
-    # Compra promedio por cliente
+    # Compra promedio por cliente (solo clientes activos en el período)
     kpis['compra_promedio_cliente'] = df_sales.groupby('sk_customer')['line_total'].sum().mean()
     
     return kpis
@@ -560,13 +575,13 @@ def get_inventario_kpis(df_inventory, df_products):
     # Total productos
     kpis['total_productos'] = df_products['sk_product'].nunique() if not df_products.empty else 0
     
-    # Productos con backorder
+    # Productos con backorder en el período
     kpis['productos_backorder'] = df_inventory[df_inventory['is_backorder'] == True]['sk_product'].nunique()
     
-    # Transacciones totales
+    # Transacciones totales en el período
     kpis['total_transacciones'] = len(df_inventory)
     
-    # Entradas vs Salidas
+    # Entradas vs Salidas en el período
     entradas = df_inventory[df_inventory['transaction_type'] == 'Purchased']['quantity'].sum()
     salidas = df_inventory[df_inventory['transaction_type'] == 'Sold']['quantity'].sum()
     kpis['total_entradas'] = entradas
@@ -576,26 +591,44 @@ def get_inventario_kpis(df_inventory, df_products):
     return kpis
 
 def get_compras_kpis(df_purchases):
-    """KPIs para el área de Compras"""
+    """KPIs para el área de Compras (MEJORADO)"""
     kpis = {}
     
     if df_purchases.empty:
         return kpis
     
-    # Total comprado
-    kpis['total_comprado'] = (df_purchases['unit_cost'] * df_purchases['quantity']).sum()
+    # Crear copia para no modificar original
+    df = df_purchases.copy()
     
-    # Órdenes de compra
-    kpis['total_ordenes_compra'] = df_purchases['purchase_order_id'].nunique()
+    # Calcular total por línea (consistente con el gráfico)
+    df['total_linea'] = df['unit_cost'] * df['quantity']
     
-    # Órdenes pendientes
-    kpis['ordenes_pendientes'] = df_purchases[df_purchases['date_received'].isna()]['purchase_order_id'].nunique()
+    # Total comprado en el período (ahora consistente)
+    kpis['total_comprado'] = df['total_linea'].sum()
     
-    # Tasa de recepción
-    kpis['tasa_recepcion'] = (1 - kpis['ordenes_pendientes'] / kpis['total_ordenes_compra']) * 100
+    # Órdenes de compra en el período
+    kpis['total_ordenes_compra'] = df['purchase_order_id'].nunique()
     
-    # Costo promedio por orden
-    kpis['costo_promedio_orden'] = kpis['total_comprado'] / kpis['total_ordenes_compra']
+    # Proveedores distintos en el período
+    kpis['proveedores_activos'] = df['sk_supplier'].nunique()
+    
+    # Productos distintos comprados
+    kpis['productos_comprados'] = df['sk_product'].nunique()
+    
+    # Cantidad total de unidades compradas
+    kpis['unidades_totales'] = df['quantity'].sum()
+    
+    # Costo promedio por orden en el período (CORREGIDO: promedio real)
+    kpis['costo_promedio_orden'] = df.groupby('purchase_order_id')['total_linea'].sum().mean() if kpis['total_ordenes_compra'] > 0 else 0
+    
+    # Costo promedio por unidad (ponderado)
+    kpis['costo_promedio_unidad'] = kpis['total_comprado'] / kpis['unidades_totales'] if kpis['unidades_totales'] > 0 else 0
+    
+    # Orden de compra más grande
+    ordenes_totales = df.groupby('purchase_order_id')['total_linea'].sum()
+    if not ordenes_totales.empty:
+        kpis['orden_maxima'] = ordenes_totales.max()
+        kpis['orden_maxima_id'] = ordenes_totales.idxmax()
     
     return kpis
 
@@ -606,16 +639,16 @@ def get_logistica_kpis(df_sales, df_shippers):
     if df_sales.empty:
         return kpis
     
-    # Total envíos
+    # Total envíos en el período
     kpis['total_envios'] = df_sales['sk_shipper'].notna().sum()
     
-    # Órdenes sin transportista
+    # Órdenes sin transportista en el período
     kpis['ordenes_sin_transportista'] = df_sales['sk_shipper'].isna().sum()
     
-    # Costo envío promedio
+    # Costo envío promedio en el período
     kpis['costo_envio_promedio'] = df_sales['shipping_fee'].mean()
     
-    # Transportista más usado
+    # Transportista más usado en el período
     if not df_shippers.empty and kpis['total_envios'] > 0:
         top_shipper_id = df_sales['sk_shipper'].value_counts().index[0]
         top_shipper = df_shippers[df_shippers['sk_shipper'] == top_shipper_id]
